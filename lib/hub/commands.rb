@@ -149,8 +149,8 @@ module Hub
           head_project, options[:head] = from_github_ref.call(head, head_project)
         when '-i'
           options[:issue] = args.shift
-        when '--open-browser'
-          after_exec = 'open'
+        when '--open-browser' || '--o'
+          after_exec = 'browse'
         else
           if url = resolve_github_url(arg) and url.project_path =~ /^issues\/(\d+)/
             options[:issue] = $1
