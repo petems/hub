@@ -729,23 +729,23 @@ module Hub
 
       if script
         puts "alias git=hub"
-        if 'zsh' == shell
-          puts "if type compdef >/dev/null; then"
-          puts "   compdef hub=git"
-          puts "fi"
-        end
       else
         profile = case shell
           when 'bash' then '~/.bash_profile'
           when 'zsh'  then '~/.zshrc'
           when 'ksh'  then '~/.profile'
+          when 'fish' then '~/.config/fish/config.fish'
           else
             'your profile'
           end
 
         puts "# Wrap git automatically by adding the following to #{profile}:"
         puts
-        puts 'eval "$(hub alias -s)"'
+        if shell == 'fish'
+          puts 'eval (hub alias -s)'
+        else
+          puts 'eval "$(hub alias -s)"'
+        end
       end
 
       exit
@@ -767,10 +767,16 @@ module Hub
       if command == 'hub' || custom_command?(command)
         puts hub_manpage
         exit
-      elsif command.nil? && !args.has_flag?('-a', '--all')
-        ENV['GIT_PAGER'] = '' unless args.has_flag?('-p', '--paginate') # Use `cat`.
-        puts improved_help_text
-        exit
+      elsif command.nil?
+        if args.has_flag?('-a', '--all')
+          # Add the special hub commands to the end of "git help -a" output.
+          args.after 'echo', ["\nhub custom commands\n"]
+          args.after 'echo', CUSTOM_COMMANDS.map {|cmd| "  #{cmd}" }
+        else
+          ENV['GIT_PAGER'] = '' unless args.has_flag?('-p', '--paginate') # Use `cat`.
+          puts improved_help_text
+          exit
+        end
       end
     end
     alias_method "--help", :help
@@ -791,7 +797,7 @@ module Hub
         config_file = ENV['HUB_CONFIG'] || '~/.config/hub'
         file_store = GitHubAPI::FileStore.new File.expand_path(config_file)
         file_config = GitHubAPI::Configuration.new file_store
-        GitHubAPI.new file_config, :app_url => 'http://defunkt.io/hub/'
+        GitHubAPI.new file_config, :app_url => 'http://hub.github.com/'
       end
     end
 
@@ -955,7 +961,8 @@ help
     # in order to turn our raw roff (manpage markup) into something
     # readable on the terminal.
     def groff_command
-      "groff -Wall -mtty-char -mandoc -Tascii"
+      cols = terminal_width
+      "groff -Wall -mtty-char -mandoc -Tascii -rLL=#{cols}n -rLT=#{cols}n"
     end
 
     # Returns the raw hub manpage. If we're not running in standalone
